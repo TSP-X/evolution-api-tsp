@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: evolution-api-tsp
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SERVER_URL
+        value: https://evolution-api-tsp.onrender.com
+      - key: AUTHENTICATION_API_KEY
+        value: TSP_GROUP_SECRET_2024
+      - key: AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES
+        value: "true"
+      - key: QRCODE_LIMIT
+        value: "10"
+      - key: LOG_LEVEL
+        value: "ERROR,WARN,DEBUG,INFO,LOG,VERBOSE,DARK,WEBHOOKS"

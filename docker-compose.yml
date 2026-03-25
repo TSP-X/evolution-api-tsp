@@ -11,7 +11,7 @@ services:
       - redis
     environment:
       # Server
-      - SERVER_URL=https://evolution-tsp.onrender.com
+      - SERVER_URL=${SERVER_URL:-https://evolution-tsp.up.railway.app}
       - SERVER_PORT=8080
 
       # Authentication

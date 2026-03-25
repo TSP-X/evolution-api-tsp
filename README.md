@@ -1,98 +1,72 @@
 # Evolution API - TSP Group
 
-Servidor Evolution API configurado para **WhatsApp**, **Instagram** e **Telegram**.
+Servidor Evolution API para **WhatsApp**, **Instagram** e **Telegram** no Railway.
 
-## Deploy no Railway (Produção)
+## Deploy no Railway
 
-O projeto já está no Railway (ID: `e2242e14-97fc-4fe9-9f9e-2a277327017d`).
+Projeto: `e2242e14-97fc-4fe9-9f9e-2a277327017d`
 
-### Variáveis de ambiente necessárias no Railway:
+### 1. Adicionar serviços no Railway
 
-Configure no painel do Railway (Settings > Variables):
+No painel do projeto, adicionar:
 
-```env
-SERVER_URL=https://seu-dominio.up.railway.app
-AUTHENTICATION_API_KEY=sua-chave-secreta
-AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
+- **PostgreSQL**: `New Service > Database > Add PostgreSQL`
+- **Redis**: `New Service > Database > Add Redis`
 
-# Database (adicionar serviço PostgreSQL no Railway)
-DATABASE_ENABLED=true
-DATABASE_PROVIDER=postgresql
-DATABASE_CONNECTION_URI=${{Postgres.DATABASE_URL}}
-DATABASE_SAVE_DATA_INSTANCE=true
-DATABASE_SAVE_DATA_NEW_MESSAGE=true
-DATABASE_SAVE_DATA_MESSAGE_UPDATE=true
-DATABASE_SAVE_DATA_CONTACTS=true
-DATABASE_SAVE_DATA_CHATS=true
+### 2. Configurar variáveis de ambiente
 
-# Redis (adicionar serviço Redis no Railway)
-CACHE_REDIS_ENABLED=true
-CACHE_REDIS_URI=${{Redis.REDIS_URL}}
-CACHE_REDIS_PREFIX_KEY=evolution
-CACHE_REDIS_SAVE_INSTANCES=true
-CACHE_LOCAL_ENABLED=false
+No serviço da Evolution API (`Variables`), adicionar:
 
-# WhatsApp
-WHATSAPP_BAILEYS_DEFAULT=true
-QRCODE_LIMIT=10
+| Variável | Valor |
+|---|---|
+| `AUTHENTICATION_API_KEY` | `TSP_GROUP_SECRET_KEY_2024` |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+| `REDIS_URL` | `${{Redis.REDIS_URL}}` |
 
-# Instagram / Meta Business
-WA_BUSINESS_TOKEN_WEBHOOK=evolution
-WA_BUSINESS_URL=https://graph.facebook.com
-WA_BUSINESS_VERSION=v20.0
+> As demais variáveis já estão configuradas no Dockerfile automaticamente.
+> `SERVER_URL` e `PORT` são detectados automaticamente pelo Railway.
 
-# Logging
-LOG_LEVEL=ERROR,WARN,DEBUG,INFO,LOG,VERBOSE,DARK,WEBHOOKS
-```
+### 3. Gerar domínio público
 
-### Serviços necessários no Railway:
+`Settings > Networking > Generate Domain`
 
-1. **PostgreSQL** - Adicionar via "New Service > Database > PostgreSQL"
-2. **Redis** - Adicionar via "New Service > Database > Redis"
-3. **Evolution API** - Deploy automático via este repositório
+### 4. Deploy
 
-## Deploy Local (Docker Compose)
+O deploy é automático ao fazer push neste repositório.
 
-```bash
-docker compose up -d
-```
-
-Acesse: `http://localhost:8080`
+---
 
 ## Configuração dos Canais
 
+Após o deploy, use a URL pública do Railway para configurar os canais.
+
 ### WhatsApp (QR Code)
 
-Criar instância WhatsApp:
-
 ```bash
+# Criar instância
 curl -X POST https://SEU_DOMINIO/instance/create \
-  -H "apikey: SUA_API_KEY" \
+  -H "apikey: TSP_GROUP_SECRET_KEY_2024" \
   -H "Content-Type: application/json" \
   -d '{
     "instanceName": "whatsapp-tsp",
     "integration": "WHATSAPP-BAILEYS",
     "qrcode": true
   }'
-```
 
-Obter QR Code para conectar:
-
-```bash
+# Conectar (escanear QR Code)
 curl https://SEU_DOMINIO/instance/connect/whatsapp-tsp \
-  -H "apikey: SUA_API_KEY"
+  -H "apikey: TSP_GROUP_SECRET_KEY_2024"
 ```
 
 ### Instagram
 
 Pré-requisitos:
 - Conta Meta Business
-- App configurado no [Meta Developers](https://developers.facebook.com)
-- Token de acesso do Instagram
+- App no [Meta Developers](https://developers.facebook.com)
 
 ```bash
 curl -X POST https://SEU_DOMINIO/instance/create \
-  -H "apikey: SUA_API_KEY" \
+  -H "apikey: TSP_GROUP_SECRET_KEY_2024" \
   -H "Content-Type: application/json" \
   -d '{
     "instanceName": "instagram-tsp",
@@ -104,12 +78,11 @@ curl -X POST https://SEU_DOMINIO/instance/create \
 
 ### Telegram
 
-Pré-requisitos:
-- Bot Token do [@BotFather](https://t.me/BotFather)
+Pré-requisito: Bot Token do [@BotFather](https://t.me/BotFather)
 
 ```bash
 curl -X POST https://SEU_DOMINIO/instance/create \
-  -H "apikey: SUA_API_KEY" \
+  -H "apikey: TSP_GROUP_SECRET_KEY_2024" \
   -H "Content-Type: application/json" \
   -d '{
     "instanceName": "telegram-tsp",
@@ -120,56 +93,37 @@ curl -X POST https://SEU_DOMINIO/instance/create \
 
 ## Enviar Mensagens
 
-### WhatsApp
-
 ```bash
+# WhatsApp
 curl -X POST https://SEU_DOMINIO/message/sendText/whatsapp-tsp \
-  -H "apikey: SUA_API_KEY" \
+  -H "apikey: TSP_GROUP_SECRET_KEY_2024" \
   -H "Content-Type: application/json" \
-  -d '{
-    "number": "5511999999999",
-    "text": "Olá do TSP Group!"
-  }'
-```
+  -d '{"number": "5511999999999", "text": "Olá do TSP Group!"}'
 
-### Telegram
-
-```bash
+# Telegram
 curl -X POST https://SEU_DOMINIO/message/sendText/telegram-tsp \
-  -H "apikey: SUA_API_KEY" \
+  -H "apikey: TSP_GROUP_SECRET_KEY_2024" \
   -H "Content-Type: application/json" \
-  -d '{
-    "number": "CHAT_ID",
-    "text": "Olá do TSP Group!"
-  }'
+  -d '{"number": "CHAT_ID", "text": "Olá do TSP Group!"}'
 ```
 
 ## Webhooks
 
-Configure webhooks por instância:
-
 ```bash
 curl -X POST https://SEU_DOMINIO/webhook/set/whatsapp-tsp \
-  -H "apikey: SUA_API_KEY" \
+  -H "apikey: TSP_GROUP_SECRET_KEY_2024" \
   -H "Content-Type: application/json" \
   -d '{
     "url": "https://seu-servidor.com/webhook",
     "webhook_by_events": true,
-    "events": [
-      "MESSAGES_UPSERT",
-      "MESSAGES_UPDATE",
-      "CONNECTION_UPDATE",
-      "SEND_MESSAGE"
-    ]
+    "events": ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE", "SEND_MESSAGE"]
   }'
 ```
 
-## Variáveis de Ambiente
+## Deploy Local (Docker Compose)
 
-| Variável | Descrição |
-|---|---|
-| `AUTHENTICATION_API_KEY` | Chave de autenticação da API |
-| `DATABASE_CONNECTION_URI` | URI de conexão PostgreSQL |
-| `CACHE_REDIS_URI` | URI de conexão Redis |
-| `SERVER_URL` | URL pública do servidor |
-| `PORT` | Porta do servidor (Railway define automaticamente) |
+```bash
+docker compose up -d
+```
+
+Acesse: `http://localhost:8080`

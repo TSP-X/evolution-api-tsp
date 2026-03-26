@@ -1,5 +1,8 @@
-FROM atendai/evolution-api:v2.2.3
+FROM evoapicloud/evolution-api:latest
 
-ENV SERVER_PORT=8080
+ENV DOCKER_ENV=true \
+	SERVER_PORT=8080 \
+	SERVER_DISABLE_MANAGER=false \
+	SERVER_DISABLE_DOCS=false
 
 EXPOSE 8080

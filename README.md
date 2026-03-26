@@ -317,3 +317,22 @@ Depois acesse:
 - docker-compose.yml: ambiente local equivalente
 - .env.example: base para variáveis
 - railway.json: instruções de build e healthcheck para Railway
+
+## Telegram fora da Evolution API
+
+Esta instalação da Evolution API não suporta Telegram como `integration` nativa.
+
+Para esse caso, o repositório inclui um serviço separado em [telegram-bridge/README.md](telegram-bridge/README.md) para deploy no Railway. Esse bridge:
+
+- recebe webhooks do bot do Telegram
+- normaliza os eventos recebidos
+- encaminha o payload para o backend do UNO
+
+Variáveis principais do bridge:
+
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_SECRET_TOKEN`
+- `UNO_WEBHOOK_URL`
+- `UNO_API_TOKEN`
+
+Sem `UNO_API_TOKEN`, o serviço sobe e recebe eventos, mas o UNO pode responder `401` nas rotas protegidas.

@@ -143,6 +143,16 @@ WEBHOOK_GLOBAL_URL=https://seu-outro-servico.up.railway.app/webhooks/evolution
 WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS=true
 ```
 
+Se o backend de destino aceitar apenas uma rota base sem sufixos por evento, use:
+
+```env
+WEBHOOK_GLOBAL_ENABLED=true
+WEBHOOK_GLOBAL_URL=https://seu-outro-servico.up.railway.app/api/whatsapp/webhook
+WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS=false
+```
+
+Esse formato e o correto para integracoes como o UNO, porque a Evolution API pode anexar caminhos como `/connection-update` quando `WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS=true`.
+
 Eventos úteis para automação:
 
 - MESSAGES_UPSERT

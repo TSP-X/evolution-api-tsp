@@ -68,9 +68,9 @@ services:
       - EVOAI_ENABLED=${EVOAI_ENABLED:-false}
       - CHATWOOT_ENABLED=${CHATWOOT_ENABLED:-false}
 
-      # Webhook global settings
-      - WEBHOOK_GLOBAL_ENABLED=${WEBHOOK_GLOBAL_ENABLED:-false}
-      - WEBHOOK_GLOBAL_URL=${WEBHOOK_GLOBAL_URL:-}
+      # Webhook global settings - aponta para o uno-bridge por padrao
+      - WEBHOOK_GLOBAL_ENABLED=${WEBHOOK_GLOBAL_ENABLED:-true}
+      - WEBHOOK_GLOBAL_URL=${WEBHOOK_GLOBAL_URL:-http://uno-bridge:8080/evolution/webhook}
       - WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS=${WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS:-false}
       - WEBHOOK_EVENTS_APPLICATION_STARTUP=${WEBHOOK_EVENTS_APPLICATION_STARTUP:-false}
       - WEBHOOK_EVENTS_QRCODE_UPDATED=${WEBHOOK_EVENTS_QRCODE_UPDATED:-true}
@@ -132,6 +132,26 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    restart: always
+    networks:
+      - evolution-net
+
+  uno-bridge:
+    build:
+      context: ./uno-bridge
+    container_name: uno-bridge
+    depends_on:
+      - evolution-api
+    ports:
+      - "8081:8080"
+    environment:
+      - PORT=8080
+      - EVOLUTION_API_URL=${UNO_BRIDGE_EVOLUTION_API_URL:-http://evolution-api:8080}
+      - EVOLUTION_API_KEY=${UNO_BRIDGE_EVOLUTION_API_KEY:-${AUTHENTICATION_API_KEY:-CHANGE_ME}}
+      - BRIDGE_API_TOKEN=${UNO_BRIDGE_BRIDGE_API_TOKEN:-change-me}
+      - UNO_WEBHOOK_URL=${UNO_BRIDGE_UNO_WEBHOOK_URL:-https://unoraiz.up.railway.app/api/whatsapp/webhook}
+      - UNO_API_TOKEN=${UNO_BRIDGE_UNO_API_TOKEN:-}
+      - UNO_TIMEOUT_MS=${UNO_BRIDGE_UNO_TIMEOUT_MS:-15000}
     restart: always
     networks:
       - evolution-net

@@ -287,6 +287,67 @@ curl -X POST https://SEU_DOMINIO_PUBLICO.up.railway.app/webhook/set/whatsapp-tsp
   }'
 ```
 
+## Ativacao self-service de prestadores (UNO)
+
+Cada prestador do sistema UNO precisa logar seu proprio WhatsApp profissional. Para isso o repositorio inclui o servico [`uno-bridge`](uno-bridge/README.md), que atua como proxy autenticado entre o backend UNO e a Evolution API.
+
+Fluxo resumido:
+
+```text
+Prestador (app UNO)
+       |
+       v
+UNO backend  --->  uno-bridge  --->  Evolution API
+       ^                                  |
+       |                                  |
+       +---- webhook normalizado ---------+
+```
+
+1. Prestador pede para conectar o WhatsApp no app UNO.
+2. Backend UNO chama `POST /providers/activate` no `uno-bridge` enviando o `providerId`.
+3. `uno-bridge` cria a instancia `provider-{providerId}` na Evolution (`integration: WHATSAPP-BAILEYS`) e devolve o QR Code ao UNO.
+4. Prestador escaneia o QR no proprio celular.
+5. Evolution envia webhooks globais para o `uno-bridge` (`WEBHOOK_GLOBAL_URL` aponta para `http://uno-bridge:8080/evolution/webhook`).
+6. `uno-bridge` normaliza o payload, extrai o `providerId` do `instanceName` e encaminha ao UNO em `UNO_WEBHOOK_URL`.
+
+Naming convention das instancias: `provider-{providerId}`. O UNO guarda o mapeamento `providerId -> instanceName` no proprio banco.
+
+Exemplo de ativacao pelo backend UNO:
+
+```bash
+curl -X POST https://uno-bridge.up.railway.app/providers/activate \
+  -H "Authorization: Bearer SEU_BRIDGE_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "providerId": "123", "providerName": "Prestador 123" }'
+```
+
+Payload normalizado que o UNO recebe em `UNO_WEBHOOK_URL`:
+
+```json
+{
+  "source": "evolution",
+  "event": "CONNECTION_UPDATE",
+  "providerId": "123",
+  "instanceName": "provider-123",
+  "timestamp": "2026-04-17T12:00:00.000Z",
+  "data": { "state": "open" },
+  "raw": { "...": "payload original da Evolution" }
+}
+```
+
+Eventos relevantes para o UNO: `QRCODE_UPDATED` (QR renovou), `CONNECTION_UPDATE` (`state: open`, `close`, `connecting`), `MESSAGES_UPSERT`, `CALL`, `ERRORS`.
+
+### Capacidade para 500 prestadores simultaneos
+
+500 instancias Baileys no mesmo container consomem memoria e CPU. Recomendacoes:
+
+- Servico Evolution no Railway com ao menos 4 vCPU e 8 GB RAM
+- Postgres gerenciado com `max_connections >= 200`; anexe `?connection_limit=50&pool_timeout=20` na `DATABASE_CONNECTION_URI`
+- Redis com persistencia AOF habilitada (ja esta em `docker-compose.yml`) e `CACHE_REDIS_SAVE_INSTANCES=true`
+- Volume persistente obrigatorio em `/evolution/instances` (sem ele as sessoes somem no restart)
+- Se ultrapassar 500 prestadores, considere sharding: levantar um segundo servico Evolution e dividir `providerId` (par/impar ou hash) no `uno-bridge` antes de chamar a API
+- Ative apenas os `WEBHOOK_EVENTS_*` realmente consumidos pelo UNO para reduzir trafego
+
 ## IA e agentes
 
 A Evolution API consegue servir como camada de canais. Para a inteligência, o padrão recomendado é seu outro serviço receber os webhooks e decidir a resposta. Ainda assim, o container já fica preparado para habilitar integrações por variável:
@@ -318,21 +379,32 @@ Depois acesse:
 - .env.example: base para variáveis
 - railway.json: instruções de build e healthcheck para Railway
 
-## Telegram fora da Evolution API
+## Bridges auxiliares
 
-Esta instalação da Evolution API não suporta Telegram como `integration` nativa.
+Este repositorio entrega dois micro-servicos Node/Express para cobrir gaps da Evolution API e integrar com o backend UNO:
 
-Para esse caso, o repositório inclui um serviço separado em [telegram-bridge/README.md](telegram-bridge/README.md) para deploy no Railway. Esse bridge:
+- [`telegram-bridge/`](telegram-bridge/README.md) - substitui a integracao Telegram nativa (ausente nesta instalacao). Recebe webhooks do bot do Telegram, normaliza e encaminha ao UNO.
+- [`uno-bridge/`](uno-bridge/README.md) - proxy autenticado para ativacao self-service de WhatsApp por prestador. Cria instancias `provider-{providerId}` na Evolution, entrega QR Code ao UNO e encaminha webhooks globais normalizados.
 
-- recebe webhooks do bot do Telegram
-- normaliza os eventos recebidos
-- encaminha o payload para o backend do UNO
+### Telegram Bridge
 
-Variáveis principais do bridge:
+Variaveis principais:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_SECRET_TOKEN`
 - `UNO_WEBHOOK_URL`
 - `UNO_API_TOKEN`
 
-Sem `UNO_API_TOKEN`, o serviço sobe e recebe eventos, mas o UNO pode responder `401` nas rotas protegidas.
+Sem `UNO_API_TOKEN`, o servico sobe e recebe eventos, mas o UNO pode responder `401` nas rotas protegidas.
+
+### UNO Bridge
+
+Variaveis principais:
+
+- `EVOLUTION_API_URL`
+- `EVOLUTION_API_KEY`
+- `BRIDGE_API_TOKEN`
+- `UNO_WEBHOOK_URL`
+- `UNO_API_TOKEN`
+
+Para o fluxo completo de ativacao self-service, veja a secao "Ativacao self-service de prestadores (UNO)" acima.

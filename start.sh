@@ -30,5 +30,6 @@ echo "  REDIS: $CACHE_REDIS_ENABLED"
 echo "  WhatsApp: $WHATSAPP_BAILEYS_DEFAULT"
 echo "================================================"
 
-# Start Evolution API (original entrypoint)
-exec node ./dist/src/main.js
+# Start Evolution API using the image's original boot sequence.
+cd /evolution
+exec /bin/bash -c '. ./Docker/scripts/deploy_database.sh && npm run start:prod'

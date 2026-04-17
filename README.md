@@ -54,7 +54,7 @@ Este repositório usa a imagem oficial atual da Evolution API em vez da imagem a
 
 ### 3. Variáveis obrigatórias no serviço web
 
-Defina pelo menos estas variáveis no Railway:
+Voce pode configurar tudo explicitamente ou usar os atalhos do Railway descritos logo abaixo.
 
 ```env
 SERVER_URL=https://SEU_DOMINIO_PUBLICO.up.railway.app
@@ -115,7 +115,19 @@ LOG_COLOR=true
 LOG_BAILEYS=error
 ```
 
-Se o Railway injetar uma porta dinâmica, ele normalmente também expõe PORT. A Evolution API seguirá funcionando porque o container permanece publicado na 8080 internamente.
+Se o Railway injetar uma porta dinamica, o `start.sh` converte `PORT` para `SERVER_PORT`. O mesmo script tambem:
+
+- usa `RAILWAY_PUBLIC_DOMAIN` para preencher `SERVER_URL` quando ela nao for definida;
+- usa `DATABASE_URL` como `DATABASE_CONNECTION_URI` quando voce preferir referenciar o Postgres gerenciado direto;
+- usa `REDIS_URL` como `CACHE_REDIS_URI` quando voce preferir referenciar o Redis gerenciado direto.
+
+Configuracao minima no Railway:
+
+| Variavel | Valor |
+| --- | --- |
+| `AUTHENTICATION_API_KEY` | uma chave forte |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+| `REDIS_URL` | `${{Redis.REDIS_URL}}` |
 
 ### 4. Verificar se o deploy subiu
 

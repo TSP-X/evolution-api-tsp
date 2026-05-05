@@ -270,10 +270,11 @@ app.delete('/providers/:providerId', requireBridgeAuth, async (req, res) => {
   }
 });
 
-app.post('/evolution/webhook', async (req, res) => {
+app.post('/evolution/webhook/:secret?', async (req, res) => {
   try {
     if (config.evolutionWebhookSecret) {
-      const provided = req.get('apikey') || req.get('X-Webhook-Secret') || '';
+      const provided =
+        req.params.secret || req.get('apikey') || req.get('X-Webhook-Secret') || '';
       if (provided !== config.evolutionWebhookSecret) {
         return res.status(403).json({ ok: false, error: 'invalid evolution webhook secret' });
       }

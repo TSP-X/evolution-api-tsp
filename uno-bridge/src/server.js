@@ -116,6 +116,10 @@ function requireBridgeAuth(req, res, next) {
   return next();
 }
 
+app.get('/', (_, res) => {
+  res.json({ ok: true, service: 'uno-bridge' });
+});
+
 app.get('/health', (_, res) => {
   res.json({
     ok: true,

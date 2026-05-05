@@ -15,13 +15,16 @@ Servico separado para ativacao self-service de WhatsApp por prestador dentro do 
 ## Variaveis esperadas
 
 - `PORT` (default `8080`)
-- `EVOLUTION_API_URL` (obrigatorio, ex: `http://evolution-api:8080`)
+- `EVOLUTION_API_URL` (obrigatorio, ex: `http://evolution-api.railway.internal:8080`)
 - `EVOLUTION_API_KEY` (obrigatorio, mesma `AUTHENTICATION_API_KEY` da Evolution)
 - `BRIDGE_API_TOKEN` (obrigatorio, token que o UNO usa para chamar este bridge)
-- `UNO_WEBHOOK_URL` (destino para onde os eventos normalizados sao encaminhados)
-- `UNO_API_TOKEN` (Bearer token enviado ao UNO)
+- `UNO_WEBHOOK_URL` (destino para onde os eventos normalizados sao encaminhados; default `https://unoraiz.up.railway.app/api/wa-pessoal/webhook`)
+- `UNO_WEBHOOK_SECRET` (enviado como header `X-UNO-Webhook-Secret` ao chamar o UNO)
+- `UNO_API_TOKEN` (Bearer token enviado ao UNO; opcional, usado em paralelo ao secret)
 - `UNO_TIMEOUT_MS` (default `15000`)
 - `EVOLUTION_WEBHOOK_SECRET` (opcional, valida header `apikey` ou `X-Webhook-Secret` no `/evolution/webhook`)
+- `INSTANCE_PREFIX` (default `provider-`, usado para criar novas instancias `<prefix><providerId>`)
+- `INSTANCE_PREFIXES` (default `provider-,tsp-user-`, lista para reconhecer e extrair `providerId` em webhooks de qualquer prefixo legado)
 
 ## Rotas
 

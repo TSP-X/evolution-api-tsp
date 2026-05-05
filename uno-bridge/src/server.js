@@ -8,11 +8,16 @@ const config = {
   evolutionApiUrl: (process.env.EVOLUTION_API_URL || '').replace(/\/+$/, ''),
   evolutionApiKey: process.env.EVOLUTION_API_KEY || '',
   bridgeApiToken: process.env.BRIDGE_API_TOKEN || '',
-  unoWebhookUrl: process.env.UNO_WEBHOOK_URL || 'https://unoraiz.up.railway.app/api/whatsapp/webhook',
+  unoWebhookUrl: process.env.UNO_WEBHOOK_URL || 'https://unoraiz.up.railway.app/api/wa-pessoal/webhook',
   unoApiToken: process.env.UNO_API_TOKEN || '',
+  unoWebhookSecret: process.env.UNO_WEBHOOK_SECRET || '',
   unoTimeoutMs: Number(process.env.UNO_TIMEOUT_MS || 15000),
   evolutionWebhookSecret: process.env.EVOLUTION_WEBHOOK_SECRET || '',
-  instancePrefix: 'provider-',
+  instancePrefixes: (process.env.INSTANCE_PREFIXES || 'provider-,tsp-user-')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
+  instancePrefix: process.env.INSTANCE_PREFIX || 'provider-',
 };
 
 function instanceNameFor(providerId) {
@@ -20,8 +25,13 @@ function instanceNameFor(providerId) {
 }
 
 function providerIdFrom(instanceName) {
-  if (!instanceName || !instanceName.startsWith(config.instancePrefix)) return null;
-  return instanceName.slice(config.instancePrefix.length);
+  if (!instanceName) return null;
+  for (const prefix of config.instancePrefixes) {
+    if (prefix && instanceName.startsWith(prefix)) {
+      return instanceName.slice(prefix.length);
+    }
+  }
+  return null;
 }
 
 async function evolutionFetch(path, { method = 'GET', body } = {}) {
@@ -62,6 +72,10 @@ async function forwardToUno(payload) {
 
   if (config.unoApiToken) {
     headers.Authorization = `Bearer ${config.unoApiToken}`;
+  }
+
+  if (config.unoWebhookSecret) {
+    headers['X-UNO-Webhook-Secret'] = config.unoWebhookSecret;
   }
 
   const controller = new AbortController();
@@ -111,6 +125,8 @@ app.get('/health', (_, res) => {
     hasBridgeApiToken: Boolean(config.bridgeApiToken),
     unoWebhookUrl: config.unoWebhookUrl,
     hasUnoApiToken: Boolean(config.unoApiToken),
+    hasUnoWebhookSecret: Boolean(config.unoWebhookSecret),
+    instancePrefixes: config.instancePrefixes,
   });
 });
 
@@ -124,12 +140,35 @@ app.post('/providers/activate', requireBridgeAuth, async (req, res) => {
 
     const instanceName = instanceNameFor(providerId);
 
+    const webhook = config.unoWebhookUrl
+      ? {
+          enabled: true,
+          url: config.unoWebhookUrl,
+          headers: config.unoWebhookSecret
+            ? { 'X-UNO-Webhook-Secret': config.unoWebhookSecret }
+            : undefined,
+          events: [
+            'QRCODE_UPDATED',
+            'CONNECTION_UPDATE',
+            'MESSAGES_UPSERT',
+            'MESSAGES_UPDATE',
+            'MESSAGES_DELETE',
+            'SEND_MESSAGE',
+            'CONTACTS_UPDATE',
+            'CHATS_UPDATE',
+            'CALL',
+            'PRESENCE_UPDATE',
+          ],
+        }
+      : undefined;
+
     const createResult = await evolutionFetch('/instance/create', {
       method: 'POST',
       body: {
         instanceName,
         integration: 'WHATSAPP-BAILEYS',
         qrcode: true,
+        ...(webhook ? { webhook } : {}),
       },
     });
 
@@ -252,7 +291,7 @@ app.post('/evolution/webhook', async (req, res) => {
     };
 
     let forwarded = null;
-    if (providerId) {
+    if (instanceName) {
       forwarded = await forwardToUno(payload);
     }
 

@@ -184,8 +184,14 @@
     <div class="card">
       <h2>
         Instancias
-        <button class="secondary" id="refreshBtn" style="float:right; padding: 4px 10px; font-size: 11px;">Atualizar</button>
+        <span style="float:right;">
+          <button class="secondary" id="applyAllBtn" style="padding: 4px 10px; font-size: 11px;">Aplicar defaults em todas</button>
+          <button class="secondary" id="refreshBtn" style="padding: 4px 10px; font-size: 11px;">Atualizar</button>
+        </span>
       </h2>
+      <p style="color: var(--muted); font-size: 12px; margin: -8px 0 12px;">
+        Defaults aplicados ao criar/conectar: rejeitar chamadas, ignorar grupos, sempre online, ler mensagens, ler status, sincronizar historico completo, webhook + websocket habilitados com todos os eventos.
+      </p>
       <table id="instancesTable">
         <thead>
           <tr>
@@ -335,6 +341,15 @@ document.getElementById('newIntegration').onchange = (e) => {
 
 document.getElementById('refreshBtn').onclick = loadInstances;
 
+document.getElementById('applyAllBtn').onclick = async () => {
+  if (!confirm('Aplicar settings + webhook + websocket default em TODAS as instancias?')) return;
+  try {
+    const r = await api('/admin/api/apply-defaults-all', { method: 'POST' });
+    toast('Defaults aplicados em ' + r.count + ' instancia(s)', 'success');
+    loadInstances();
+  } catch (e) { toast(e.message, 'error'); }
+};
+
 document.getElementById('createBtn').onclick = async () => {
   const instanceName = document.getElementById('newName').value.trim();
   const integration = document.getElementById('newIntegration').value;
@@ -408,6 +423,7 @@ async function loadInstances() {
         <td><span class="badge ${badge}">${status}</span></td>
         <td class="actions">
           <button class="secondary" onclick="openQr('${name}')">QR</button>
+          <button class="secondary" onclick="applyDefaults('${name}')">Defaults</button>
           <button class="secondary" onclick="openWebhook('${name}')">Webhook</button>
           <button class="secondary" onclick="openSend('${name}')">Enviar</button>
           <button class="secondary" onclick="restart('${name}')">Restart</button>
@@ -489,6 +505,13 @@ async function sendMessage() {
     });
     toast('Mensagem enviada', 'success');
     document.getElementById('sendModal').classList.remove('show');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function applyDefaults(name) {
+  try {
+    await api('/admin/api/instances/' + encodeURIComponent(name) + '/apply-defaults', { method: 'POST' });
+    toast('Defaults aplicados em ' + name, 'success');
   } catch (e) { toast(e.message, 'error'); }
 }
 

@@ -14,7 +14,53 @@ const config = {
   unoTimeoutMs: Number(process.env.UNO_TIMEOUT_MS || 15000),
   evolutionWebhookSecret: process.env.EVOLUTION_WEBHOOK_SECRET || '',
   instancePrefix: 'provider-',
+  bridgePublicUrl:
+    (process.env.BRIDGE_PUBLIC_URL && process.env.BRIDGE_PUBLIC_URL.replace(/\/+$/, '')) ||
+    (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : ''),
+  defaultRejectCallMessage:
+    process.env.DEFAULT_REJECT_CALL_MESSAGE ||
+    'No momento atendemos por mensagem. Me diga sua duvida que eu respondo aqui.',
 };
+
+const DEFAULT_INSTANCE_SETTINGS = {
+  rejectCall: true,
+  msgCall: config.defaultRejectCallMessage,
+  groupsIgnore: true,
+  alwaysOnline: true,
+  readMessages: true,
+  readStatus: true,
+  syncFullHistory: true,
+};
+
+const DEFAULT_INSTANCE_EVENTS = [
+  'APPLICATION_STARTUP',
+  'QRCODE_UPDATED',
+  'CONNECTION_UPDATE',
+  'MESSAGES_SET',
+  'MESSAGES_UPSERT',
+  'MESSAGES_UPDATE',
+  'MESSAGES_DELETE',
+  'SEND_MESSAGE',
+  'CONTACTS_SET',
+  'CONTACTS_UPSERT',
+  'CONTACTS_UPDATE',
+  'PRESENCE_UPDATE',
+  'CHATS_SET',
+  'CHATS_UPSERT',
+  'CHATS_UPDATE',
+  'CHATS_DELETE',
+  'GROUPS_UPSERT',
+  'GROUP_UPDATE',
+  'GROUP_PARTICIPANTS_UPDATE',
+  'NEW_JWT_TOKEN',
+  'CALL',
+  'TYPEBOT_START',
+  'TYPEBOT_CHANGE_STATUS',
+  'LABELS_EDIT',
+  'LABELS_ASSOCIATION',
+];
+
+const appliedDefaults = new Set();
 
 function instanceNameFor(providerId) {
   return `${config.instancePrefix}${providerId}`;
@@ -53,6 +99,76 @@ async function evolutionFetch(path, { method = 'GET', body } = {}) {
   }
 
   return { ok: response.ok, status: response.status, data };
+}
+
+async function applyInstanceDefaults(instanceName, { force = false } = {}) {
+  if (!instanceName) return { skipped: true, reason: 'instanceName ausente' };
+  if (!force && appliedDefaults.has(instanceName)) {
+    return { instanceName, alreadyApplied: true };
+  }
+
+  const report = { instanceName, steps: {} };
+
+  try {
+    const r = await evolutionFetch(`/settings/set/${encodeURIComponent(instanceName)}`, {
+      method: 'POST',
+      body: { settings: DEFAULT_INSTANCE_SETTINGS, ...DEFAULT_INSTANCE_SETTINGS },
+    });
+    report.steps.settings = { ok: r.ok, status: r.status };
+    if (!r.ok) report.steps.settings.data = r.data;
+  } catch (e) {
+    report.steps.settings = { ok: false, error: e.message };
+  }
+
+  if (config.bridgePublicUrl) {
+    const webhookUrl = `${config.bridgePublicUrl}/evolution/webhook`;
+    try {
+      const r = await evolutionFetch(`/webhook/set/${encodeURIComponent(instanceName)}`, {
+        method: 'POST',
+        body: {
+          webhook: {
+            enabled: true,
+            url: webhookUrl,
+            webhookByEvents: false,
+            webhookBase64: false,
+            events: DEFAULT_INSTANCE_EVENTS,
+          },
+          url: webhookUrl,
+          webhook_by_events: false,
+          events: DEFAULT_INSTANCE_EVENTS,
+          enabled: true,
+        },
+      });
+      report.steps.webhook = { ok: r.ok, status: r.status, url: webhookUrl };
+      if (!r.ok) report.steps.webhook.data = r.data;
+    } catch (e) {
+      report.steps.webhook = { ok: false, error: e.message };
+    }
+  } else {
+    report.steps.webhook = { ok: false, skipped: true, reason: 'BRIDGE_PUBLIC_URL ausente' };
+  }
+
+  try {
+    const r = await evolutionFetch(`/websocket/set/${encodeURIComponent(instanceName)}`, {
+      method: 'POST',
+      body: {
+        websocket: {
+          enabled: true,
+          events: DEFAULT_INSTANCE_EVENTS,
+        },
+        enabled: true,
+        events: DEFAULT_INSTANCE_EVENTS,
+      },
+    });
+    report.steps.websocket = { ok: r.ok, status: r.status };
+    if (!r.ok) report.steps.websocket.data = r.data;
+  } catch (e) {
+    report.steps.websocket = { ok: false, error: e.message };
+  }
+
+  const allOk = Object.values(report.steps).every((s) => s.ok || s.skipped);
+  if (allOk) appliedDefaults.add(instanceName);
+  return report;
 }
 
 async function forwardToUno(payload) {
@@ -149,6 +265,8 @@ app.post('/providers/activate', requireBridgeAuth, async (req, res) => {
       });
     }
 
+    const defaultsReport = await applyInstanceDefaults(instanceName, { force: createResult.ok });
+
     const connectResult = await evolutionFetch(`/instance/connect/${encodeURIComponent(instanceName)}`);
 
     return res.status(200).json({
@@ -160,6 +278,7 @@ app.post('/providers/activate', requireBridgeAuth, async (req, res) => {
       alreadyExisted: alreadyExists,
       qrcode: connectResult.data || null,
       connectStatus: connectResult.status,
+      defaults: defaultsReport,
     });
   } catch (error) {
     console.error('activate error', error);
@@ -273,9 +392,16 @@ app.post('/admin/api/instances', requireBridgeAuth, async (req, res) => {
     if (number) body.number = number;
 
     const result = await evolutionFetch('/instance/create', { method: 'POST', body });
+
+    let defaultsReport = null;
+    if (result.ok) {
+      defaultsReport = await applyInstanceDefaults(instanceName, { force: true });
+    }
+
     return res.status(result.ok ? 200 : result.status || 502).json({
       ok: result.ok,
       evolution: result.data,
+      defaults: defaultsReport,
     });
   } catch (error) {
     console.error('admin create instance error', error);
@@ -415,6 +541,38 @@ app.post('/admin/api/instances/:name/send', requireBridgeAuth, async (req, res) 
   }
 });
 
+app.post('/admin/api/instances/:name/apply-defaults', requireBridgeAuth, async (req, res) => {
+  try {
+    const report = await applyInstanceDefaults(req.params.name, { force: true });
+    return res.status(200).json({ ok: true, defaults: report });
+  } catch (error) {
+    console.error('admin apply-defaults error', error);
+    return res.status(500).json({ ok: false, error: error.message || 'internal error' });
+  }
+});
+
+app.post('/admin/api/apply-defaults-all', requireBridgeAuth, async (_, res) => {
+  try {
+    const list = await evolutionFetch('/instance/fetchInstances');
+    const raw = list.data;
+    let instances = [];
+    if (Array.isArray(raw)) instances = raw;
+    else if (raw && Array.isArray(raw.instances)) instances = raw.instances;
+    else if (raw && typeof raw === 'object') instances = Object.values(raw);
+
+    const reports = [];
+    for (const inst of instances) {
+      const name = inst.name || inst.instanceName || inst.instance?.instanceName;
+      if (!name) continue;
+      reports.push(await applyInstanceDefaults(name, { force: true }));
+    }
+    return res.status(200).json({ ok: true, count: reports.length, reports });
+  } catch (error) {
+    console.error('admin apply-defaults-all error', error);
+    return res.status(500).json({ ok: false, error: error.message || 'internal error' });
+  }
+});
+
 app.post('/evolution/webhook', async (req, res) => {
   try {
     if (config.evolutionWebhookSecret) {
@@ -428,6 +586,13 @@ app.post('/evolution/webhook', async (req, res) => {
     const instanceName = update.instance || update.instanceName || null;
     const providerId = providerIdFrom(instanceName);
     const event = update.event || null;
+    const state = update.data?.state || null;
+
+    if (instanceName && event === 'CONNECTION_UPDATE' && state === 'open') {
+      applyInstanceDefaults(instanceName).catch((e) =>
+        console.error('apply defaults on connect failed', instanceName, e),
+      );
+    }
 
     const payload = {
       source: 'evolution',

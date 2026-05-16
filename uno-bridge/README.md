@@ -18,10 +18,34 @@ Servico separado para ativacao self-service de WhatsApp por prestador dentro do 
 - `EVOLUTION_API_URL` (obrigatorio, ex: `http://evolution-api:8080`)
 - `EVOLUTION_API_KEY` (obrigatorio, mesma `AUTHENTICATION_API_KEY` da Evolution)
 - `BRIDGE_API_TOKEN` (obrigatorio, token que o UNO usa para chamar este bridge)
+- `BRIDGE_PUBLIC_URL` (URL publica do proprio bridge, usada para auto-configurar o webhook das instancias apontando para `${BRIDGE_PUBLIC_URL}/evolution/webhook`; no Railway o `RAILWAY_PUBLIC_DOMAIN` e usado automaticamente quando esta variavel nao esta setada)
 - `UNO_WEBHOOK_URL` (destino para onde os eventos normalizados sao encaminhados)
 - `UNO_API_TOKEN` (Bearer token enviado ao UNO)
 - `UNO_TIMEOUT_MS` (default `15000`)
 - `EVOLUTION_WEBHOOK_SECRET` (opcional, valida header `apikey` ou `X-Webhook-Secret` no `/evolution/webhook`)
+- `DEFAULT_REJECT_CALL_MESSAGE` (opcional, texto enviado quando uma chamada e rejeitada automaticamente)
+
+## Defaults automaticos por instancia
+
+Sempre que uma instancia e criada via este bridge OU recebe `CONNECTION_UPDATE` com `state: open`, sao aplicados:
+
+Settings (`POST /settings/set/{name}`):
+
+- `rejectCall: true` + `msgCall: DEFAULT_REJECT_CALL_MESSAGE`
+- `groupsIgnore: true`
+- `alwaysOnline: true`
+- `readMessages: true`
+- `readStatus: true`
+- `syncFullHistory: true`
+
+Webhook (`POST /webhook/set/{name}`): habilitado em `${BRIDGE_PUBLIC_URL}/evolution/webhook` com todos os eventos relevantes (MESSAGES_*, CHATS_*, CONTACTS_*, GROUPS_*, CONNECTION_UPDATE, QRCODE_UPDATED, CALL, SEND_MESSAGE, PRESENCE_UPDATE, LABELS_*, TYPEBOT_*, APPLICATION_STARTUP, NEW_JWT_TOKEN).
+
+WebSocket (`POST /websocket/set/{name}`): habilitado com os mesmos eventos.
+
+Para reaplicar manualmente em instancias ja existentes use o botao "Defaults" no painel `/admin`, ou as rotas:
+
+- `POST /admin/api/instances/{name}/apply-defaults`
+- `POST /admin/api/apply-defaults-all`
 
 ## Rotas
 

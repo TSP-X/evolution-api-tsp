@@ -152,6 +152,8 @@ services:
       - UNO_WEBHOOK_URL=${UNO_BRIDGE_UNO_WEBHOOK_URL:-https://unoraiz.up.railway.app/api/whatsapp/webhook}
       - UNO_API_TOKEN=${UNO_BRIDGE_UNO_API_TOKEN:-}
       - UNO_TIMEOUT_MS=${UNO_BRIDGE_UNO_TIMEOUT_MS:-15000}
+      - BRIDGE_PUBLIC_URL=${UNO_BRIDGE_BRIDGE_PUBLIC_URL:-http://uno-bridge:8080}
+      - DEFAULT_REJECT_CALL_MESSAGE=${UNO_BRIDGE_DEFAULT_REJECT_CALL_MESSAGE:-No momento atendemos por mensagem. Me diga sua duvida que eu respondo aqui.}
     restart: always
     networks:
       - evolution-net

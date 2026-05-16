@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -223,6 +224,193 @@ app.delete('/providers/:providerId', requireBridgeAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('delete error', error);
+    return res.status(500).json({ ok: false, error: error.message || 'internal error' });
+  }
+});
+
+app.get('/admin', (_, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get('/admin/api/health', requireBridgeAuth, (_, res) => {
+  res.json({
+    ok: true,
+    evolutionApiUrl: config.evolutionApiUrl || null,
+    hasEvolutionApiKey: Boolean(config.evolutionApiKey),
+    unoWebhookUrl: config.unoWebhookUrl,
+    hasUnoApiToken: Boolean(config.unoApiToken),
+    instancePrefix: config.instancePrefix,
+  });
+});
+
+app.get('/admin/api/instances', requireBridgeAuth, async (_, res) => {
+  try {
+    const result = await evolutionFetch('/instance/fetchInstances');
+    return res.status(result.ok ? 200 : result.status || 502).json({
+      ok: result.ok,
+      evolution: result.data,
+    });
+  } catch (error) {
+    console.error('admin list instances error', error);
+    return res.status(500).json({ ok: false, error: error.message || 'internal error' });
+  }
+});
+
+app.post('/admin/api/instances', requireBridgeAuth, async (req, res) => {
+  try {
+    const { instanceName, integration, qrcode, token, number } = req.body || {};
+
+    if (!instanceName || typeof instanceName !== 'string') {
+      return res.status(400).json({ ok: false, error: 'instanceName obrigatorio' });
+    }
+
+    const body = {
+      instanceName,
+      integration: integration || 'WHATSAPP-BAILEYS',
+      qrcode: qrcode !== false,
+    };
+    if (token) body.token = token;
+    if (number) body.number = number;
+
+    const result = await evolutionFetch('/instance/create', { method: 'POST', body });
+    return res.status(result.ok ? 200 : result.status || 502).json({
+      ok: result.ok,
+      evolution: result.data,
+    });
+  } catch (error) {
+    console.error('admin create instance error', error);
+    return res.status(500).json({ ok: false, error: error.message || 'internal error' });
+  }
+});
+
+app.get('/admin/api/instances/:name/connect', requireBridgeAuth, async (req, res) => {
+  try {
+    const result = await evolutionFetch(`/instance/connect/${encodeURIComponent(req.params.name)}`);
+    return res.status(result.ok ? 200 : result.status || 502).json({
+      ok: result.ok,
+      evolution: result.data,
+    });
+  } catch (error) {
+    console.error('admin connect error', error);
+    return res.status(500).json({ ok: false, error: error.message || 'internal error' });
+  }
+});
+
+app.get('/admin/api/instances/:name/status', requireBridgeAuth, async (req, res) => {
+  try {
+    const result = await evolutionFetch(`/instance/connectionState/${encodeURIComponent(req.params.name)}`);
+    return res.status(result.ok ? 200 : result.status || 502).json({
+      ok: result.ok,
+      evolution: result.data,
+    });
+  } catch (error) {
+    console.error('admin status error', error);
+    return res.status(500).json({ ok: false, error: error.message || 'internal error' });
+  }
+});
+
+app.post('/admin/api/instances/:name/restart', requireBridgeAuth, async (req, res) => {
+  try {
+    const result = await evolutionFetch(`/instance/restart/${encodeURIComponent(req.params.name)}`, {
+      method: 'POST',
+    });
+    return res.status(result.ok ? 200 : result.status || 502).json({
+      ok: result.ok,
+      evolution: result.data,
+    });
+  } catch (error) {
+    console.error('admin restart error', error);
+    return res.status(500).json({ ok: false, error: error.message || 'internal error' });
+  }
+});
+
+app.post('/admin/api/instances/:name/logout', requireBridgeAuth, async (req, res) => {
+  try {
+    const result = await evolutionFetch(`/instance/logout/${encodeURIComponent(req.params.name)}`, {
+      method: 'DELETE',
+    });
+    return res.status(result.ok ? 200 : result.status || 502).json({
+      ok: result.ok,
+      evolution: result.data,
+    });
+  } catch (error) {
+    console.error('admin logout error', error);
+    return res.status(500).json({ ok: false, error: error.message || 'internal error' });
+  }
+});
+
+app.delete('/admin/api/instances/:name', requireBridgeAuth, async (req, res) => {
+  try {
+    const result = await evolutionFetch(`/instance/delete/${encodeURIComponent(req.params.name)}`, {
+      method: 'DELETE',
+    });
+    return res.status(result.ok ? 200 : result.status || 502).json({
+      ok: result.ok,
+      evolution: result.data,
+    });
+  } catch (error) {
+    console.error('admin delete error', error);
+    return res.status(500).json({ ok: false, error: error.message || 'internal error' });
+  }
+});
+
+app.get('/admin/api/instances/:name/webhook', requireBridgeAuth, async (req, res) => {
+  try {
+    const result = await evolutionFetch(`/webhook/find/${encodeURIComponent(req.params.name)}`);
+    return res.status(result.ok ? 200 : result.status || 502).json({
+      ok: result.ok,
+      evolution: result.data,
+    });
+  } catch (error) {
+    console.error('admin webhook get error', error);
+    return res.status(500).json({ ok: false, error: error.message || 'internal error' });
+  }
+});
+
+app.post('/admin/api/instances/:name/webhook', requireBridgeAuth, async (req, res) => {
+  try {
+    const { url, webhook_by_events, events } = req.body || {};
+
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ ok: false, error: 'url obrigatoria' });
+    }
+
+    const result = await evolutionFetch(`/webhook/set/${encodeURIComponent(req.params.name)}`, {
+      method: 'POST',
+      body: {
+        url,
+        webhook_by_events: webhook_by_events === true,
+        events: Array.isArray(events) ? events : undefined,
+      },
+    });
+    return res.status(result.ok ? 200 : result.status || 502).json({
+      ok: result.ok,
+      evolution: result.data,
+    });
+  } catch (error) {
+    console.error('admin webhook set error', error);
+    return res.status(500).json({ ok: false, error: error.message || 'internal error' });
+  }
+});
+
+app.post('/admin/api/instances/:name/send', requireBridgeAuth, async (req, res) => {
+  try {
+    const { number, text } = req.body || {};
+
+    if (!number || !text) {
+      return res.status(400).json({ ok: false, error: 'number e text obrigatorios' });
+    }
+
+    const result = await evolutionFetch(`/message/sendText/${encodeURIComponent(req.params.name)}`, {
+      method: 'POST',
+      body: { number, text },
+    });
+    return res.status(result.ok ? 200 : result.status || 502).json({
+      ok: result.ok,
+      evolution: result.data,
+    });
+  } catch (error) {
+    console.error('admin send error', error);
     return res.status(500).json({ ok: false, error: error.message || 'internal error' });
   }
 });

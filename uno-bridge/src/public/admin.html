@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UNO Bridge - Painel Gerencial</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a2129;
+    --panel-2: #232c36;
+    --border: #2d3742;
+    --text: #e4e7eb;
+    --muted: #8a95a3;
+    --primary: #175197;
+    --primary-hover: #1e63b8;
+    --danger: #b3372c;
+    --danger-hover: #c84638;
+    --success: #2d8659;
+    --warning: #a87214;
+    --radius: 6px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+  }
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  header h1 { margin: 0; font-size: 18px; }
+  header .meta { color: var(--muted); font-size: 12px; }
+  main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    margin: 0 0 16px;
+    font-size: 15px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  button {
+    background: var(--primary);
+    color: white;
+    border: 0;
+    padding: 8px 14px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  button:hover { background: var(--primary-hover); }
+  button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  button.secondary:hover { background: var(--border); }
+  button.danger { background: var(--danger); }
+  button.danger:hover { background: var(--danger-hover); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  input, select, textarea {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-family: inherit;
+    width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { outline: 1px solid var(--primary); border-color: var(--primary); }
+  label { display: block; margin-bottom: 12px; font-size: 12px; color: var(--muted); }
+  label > span { display: block; margin-bottom: 4px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row > * { flex: 1; min-width: 0; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; }
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+  .badge.open { background: rgba(45, 134, 89, 0.2); color: #6dd99e; }
+  .badge.connecting { background: rgba(168, 114, 20, 0.2); color: #e0b85d; }
+  .badge.close, .badge.unknown { background: rgba(179, 55, 44, 0.2); color: #e07368; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .actions button { padding: 5px 10px; font-size: 11px; }
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: none; align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow: auto;
+  }
+  .modal h3 { margin: 0 0 16px; font-size: 16px; }
+  .qr-img { max-width: 100%; display: block; margin: 12px auto; background: white; border-radius: var(--radius); padding: 12px; }
+  .empty { color: var(--muted); text-align: center; padding: 30px; }
+  pre { background: var(--bg); padding: 12px; border-radius: var(--radius); overflow: auto; font-size: 11px; }
+  .login-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  }
+  .login-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; width: 380px; }
+  .login-card h1 { margin: 0 0 6px; font-size: 20px; }
+  .login-card p { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--primary);
+    padding: 12px 18px; border-radius: var(--radius); max-width: 360px; font-size: 13px;
+    transition: opacity 0.3s; z-index: 200;
+  }
+  .toast.error { border-left-color: var(--danger); }
+  .toast.success { border-left-color: var(--success); }
+  .hide { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="login" class="login-screen">
+  <div class="login-card">
+    <h1>UNO Bridge</h1>
+    <p>Painel gerencial da Evolution API. Informe o BRIDGE_API_TOKEN.</p>
+    <label>
+      <span>Token</span>
+      <input id="loginToken" type="password" placeholder="BRIDGE_API_TOKEN" />
+    </label>
+    <button id="loginBtn" style="width: 100%;">Entrar</button>
+  </div>
+</div>
+
+<div id="app" class="hide">
+  <header>
+    <div>
+      <h1>UNO Bridge - Painel Gerencial</h1>
+      <div class="meta" id="healthInfo"></div>
+    </div>
+    <button class="secondary" id="logoutBtn">Sair</button>
+  </header>
+
+  <main>
+    <div class="card">
+      <h2>Nova instancia</h2>
+      <div class="row">
+        <label>
+          <span>Nome</span>
+          <input id="newName" placeholder="ex: whatsapp-tsp ou provider-123" />
+        </label>
+        <label>
+          <span>Integracao</span>
+          <select id="newIntegration">
+            <option value="WHATSAPP-BAILEYS">WhatsApp Baileys (QR)</option>
+            <option value="WHATSAPP-BUSINESS">Meta WhatsApp Business</option>
+          </select>
+        </label>
+      </div>
+      <div class="row" id="metaFields" style="display:none;">
+        <label>
+          <span>Meta Access Token</span>
+          <input id="newToken" placeholder="EAAB..." />
+        </label>
+        <label>
+          <span>Phone Number ID</span>
+          <input id="newNumber" placeholder="123456789" />
+        </label>
+      </div>
+      <button id="createBtn">Criar instancia</button>
+    </div>
+
+    <div class="card">
+      <h2>
+        Instancias
+        <button class="secondary" id="refreshBtn" style="float:right; padding: 4px 10px; font-size: 11px;">Atualizar</button>
+      </h2>
+      <table id="instancesTable">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Integracao</th>
+            <th>Status</th>
+            <th>Acoes</th>
+          </tr>
+        </thead>
+        <tbody id="instancesBody"></tbody>
+      </table>
+      <div id="emptyState" class="empty hide">Nenhuma instancia. Crie a primeira acima.</div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-bg" id="qrModal">
+  <div class="modal">
+    <h3 id="qrTitle">QR Code</h3>
+    <div id="qrContent"></div>
+    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:16px;">
+      <button class="secondary" onclick="document.getElementById('qrModal').classList.remove('show')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="webhookModal">
+  <div class="modal">
+    <h3>Webhook da instancia <span id="webhookName"></span></h3>
+    <label>
+      <span>URL</span>
+      <input id="webhookUrl" />
+    </label>
+    <label>
+      <span>
+        <input id="webhookByEvents" type="checkbox" style="width:auto; margin-right:6px;" />
+        webhook_by_events (anexa sufixos como /messages-upsert)
+      </span>
+    </label>
+    <label>
+      <span>Eventos (um por linha, deixe vazio para todos)</span>
+      <textarea id="webhookEvents" rows="6" placeholder="MESSAGES_UPSERT
+CONNECTION_UPDATE
+QRCODE_UPDATED"></textarea>
+    </label>
+    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px;">
+      <button class="secondary" onclick="document.getElementById('webhookModal').classList.remove('show')">Cancelar</button>
+      <button onclick="saveWebhook()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="sendModal">
+  <div class="modal">
+    <h3>Enviar mensagem teste via <span id="sendName"></span></h3>
+    <label>
+      <span>Numero (com DDI, ex: 5511999999999)</span>
+      <input id="sendNumber" placeholder="5511999999999" />
+    </label>
+    <label>
+      <span>Texto</span>
+      <textarea id="sendText" rows="4"></textarea>
+    </label>
+    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px;">
+      <button class="secondary" onclick="document.getElementById('sendModal').classList.remove('show')">Cancelar</button>
+      <button onclick="sendMessage()">Enviar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOKEN_KEY = 'uno-bridge-admin-token';
+let token = sessionStorage.getItem(TOKEN_KEY) || '';
+let activeInstanceName = '';
+
+function toast(msg, type) {
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' ' + type : '');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3500);
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: {
+      ...(opts.headers || {}),
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json',
+    },
+  });
+  if (res.status === 401) {
+    sessionStorage.removeItem(TOKEN_KEY);
+    token = '';
+    showLogin();
+    throw new Error('Nao autorizado');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.ok === false) {
+    const msg = data.error || (data.evolution && JSON.stringify(data.evolution)) || ('HTTP ' + res.status);
+    throw new Error(msg);
+  }
+  return data;
+}
+
+function showLogin() {
+  document.getElementById('login').classList.remove('hide');
+  document.getElementById('app').classList.add('hide');
+}
+
+function showApp() {
+  document.getElementById('login').classList.add('hide');
+  document.getElementById('app').classList.remove('hide');
+  loadHealth();
+  loadInstances();
+}
+
+document.getElementById('loginBtn').onclick = async () => {
+  const input = document.getElementById('loginToken').value.trim();
+  if (!input) return;
+  token = input;
+  try {
+    await fetch('/admin/api/health', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(r => { if (!r.ok) throw new Error('Token invalido'); return r.json(); });
+    sessionStorage.setItem(TOKEN_KEY, token);
+    showApp();
+  } catch (e) {
+    toast('Token invalido', 'error');
+    token = '';
+  }
+};
+
+document.getElementById('loginToken').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('loginBtn').click();
+});
+
+document.getElementById('logoutBtn').onclick = () => {
+  sessionStorage.removeItem(TOKEN_KEY);
+  token = '';
+  showLogin();
+};
+
+document.getElementById('newIntegration').onchange = (e) => {
+  document.getElementById('metaFields').style.display = e.target.value === 'WHATSAPP-BUSINESS' ? 'flex' : 'none';
+};
+
+document.getElementById('refreshBtn').onclick = loadInstances;
+
+document.getElementById('createBtn').onclick = async () => {
+  const instanceName = document.getElementById('newName').value.trim();
+  const integration = document.getElementById('newIntegration').value;
+  const token2 = document.getElementById('newToken').value.trim();
+  const number = document.getElementById('newNumber').value.trim();
+  if (!instanceName) { toast('Informe um nome', 'error'); return; }
+  try {
+    await api('/admin/api/instances', {
+      method: 'POST',
+      body: JSON.stringify({
+        instanceName, integration,
+        ...(integration === 'WHATSAPP-BUSINESS' && { token: token2, number }),
+      }),
+    });
+    toast('Instancia criada', 'success');
+    document.getElementById('newName').value = '';
+    document.getElementById('newToken').value = '';
+    document.getElementById('newNumber').value = '';
+    loadInstances();
+    if (integration === 'WHATSAPP-BAILEYS') openQr(instanceName);
+  } catch (e) { toast(e.message, 'error'); }
+};
+
+async function loadHealth() {
+  try {
+    const h = await api('/admin/api/health');
+    document.getElementById('healthInfo').textContent =
+      'Evolution: ' + (h.evolutionApiUrl || '?') +
+      ' | UNO webhook: ' + (h.unoWebhookUrl || '?');
+  } catch {}
+}
+
+function statusOf(inst) {
+  return (inst.connectionStatus || inst.status || inst.state || 'unknown').toString().toLowerCase();
+}
+
+function nameOf(inst) {
+  return inst.name || inst.instanceName || inst.instance?.instanceName || '(sem nome)';
+}
+
+function integrationOf(inst) {
+  return inst.integration || inst.instance?.integration || inst.connectionType || '?';
+}
+
+async function loadInstances() {
+  try {
+    const res = await api('/admin/api/instances');
+    const raw = res.evolution;
+    let list = [];
+    if (Array.isArray(raw)) list = raw;
+    else if (raw && Array.isArray(raw.instances)) list = raw.instances;
+    else if (raw && typeof raw === 'object') list = Object.values(raw);
+
+    const tbody = document.getElementById('instancesBody');
+    tbody.innerHTML = '';
+
+    if (!list.length) {
+      document.getElementById('emptyState').classList.remove('hide');
+      return;
+    }
+    document.getElementById('emptyState').classList.add('hide');
+
+    list.forEach(inst => {
+      const name = nameOf(inst);
+      const status = statusOf(inst);
+      const badge = ['open','connecting','close'].includes(status) ? status : 'unknown';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${name}</strong></td>
+        <td>${integrationOf(inst)}</td>
+        <td><span class="badge ${badge}">${status}</span></td>
+        <td class="actions">
+          <button class="secondary" onclick="openQr('${name}')">QR</button>
+          <button class="secondary" onclick="openWebhook('${name}')">Webhook</button>
+          <button class="secondary" onclick="openSend('${name}')">Enviar</button>
+          <button class="secondary" onclick="restart('${name}')">Restart</button>
+          <button class="secondary" onclick="logoutInst('${name}')">Logout</button>
+          <button class="danger" onclick="deleteInst('${name}')">Deletar</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function openQr(name) {
+  document.getElementById('qrTitle').textContent = 'QR / Conexao: ' + name;
+  document.getElementById('qrContent').innerHTML = '<p>Carregando...</p>';
+  document.getElementById('qrModal').classList.add('show');
+  try {
+    const r = await api('/admin/api/instances/' + encodeURIComponent(name) + '/connect');
+    const d = r.evolution || {};
+    const b64 = d.base64 || d.qrcode?.base64 || d.code?.base64;
+    const code = d.code || d.qrcode?.code || d.pairingCode;
+    let html = '';
+    if (b64) html += `<img class="qr-img" src="${b64.startsWith('data:') ? b64 : 'data:image/png;base64,' + b64}" />`;
+    if (code) html += `<pre>${code}</pre>`;
+    if (!html) html = '<pre>' + JSON.stringify(d, null, 2) + '</pre>';
+    document.getElementById('qrContent').innerHTML = html;
+  } catch (e) {
+    document.getElementById('qrContent').innerHTML = '<p style="color:#e07368;">' + e.message + '</p>';
+  }
+}
+
+async function openWebhook(name) {
+  activeInstanceName = name;
+  document.getElementById('webhookName').textContent = name;
+  document.getElementById('webhookUrl').value = '';
+  document.getElementById('webhookByEvents').checked = false;
+  document.getElementById('webhookEvents').value = '';
+  document.getElementById('webhookModal').classList.add('show');
+  try {
+    const r = await api('/admin/api/instances/' + encodeURIComponent(name) + '/webhook');
+    const d = r.evolution || {};
+    document.getElementById('webhookUrl').value = d.url || '';
+    document.getElementById('webhookByEvents').checked = d.webhook_by_events || d.webhookByEvents || false;
+    const events = d.events || [];
+    document.getElementById('webhookEvents').value = Array.isArray(events) ? events.join('\n') : '';
+  } catch {}
+}
+
+async function saveWebhook() {
+  const url = document.getElementById('webhookUrl').value.trim();
+  const webhook_by_events = document.getElementById('webhookByEvents').checked;
+  const eventsText = document.getElementById('webhookEvents').value.trim();
+  const events = eventsText ? eventsText.split(/\s+/).filter(Boolean) : undefined;
+  try {
+    await api('/admin/api/instances/' + encodeURIComponent(activeInstanceName) + '/webhook', {
+      method: 'POST',
+      body: JSON.stringify({ url, webhook_by_events, events }),
+    });
+    toast('Webhook atualizado', 'success');
+    document.getElementById('webhookModal').classList.remove('show');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function openSend(name) {
+  activeInstanceName = name;
+  document.getElementById('sendName').textContent = name;
+  document.getElementById('sendNumber').value = '';
+  document.getElementById('sendText').value = '';
+  document.getElementById('sendModal').classList.add('show');
+}
+
+async function sendMessage() {
+  const number = document.getElementById('sendNumber').value.trim();
+  const text = document.getElementById('sendText').value.trim();
+  try {
+    await api('/admin/api/instances/' + encodeURIComponent(activeInstanceName) + '/send', {
+      method: 'POST',
+      body: JSON.stringify({ number, text }),
+    });
+    toast('Mensagem enviada', 'success');
+    document.getElementById('sendModal').classList.remove('show');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function restart(name) {
+  try { await api('/admin/api/instances/' + encodeURIComponent(name) + '/restart', { method: 'POST' });
+    toast('Restart enviado', 'success'); loadInstances();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function logoutInst(name) {
+  if (!confirm('Desconectar ' + name + ' do WhatsApp?')) return;
+  try { await api('/admin/api/instances/' + encodeURIComponent(name) + '/logout', { method: 'POST' });
+    toast('Logout enviado', 'success'); loadInstances();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteInst(name) {
+  if (!confirm('DELETAR instancia ' + name + '? Acao irreversivel.')) return;
+  try { await api('/admin/api/instances/' + encodeURIComponent(name), { method: 'DELETE' });
+    toast('Instancia deletada', 'success'); loadInstances();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+if (token) showApp(); else showLogin();
+setInterval(() => { if (token && !document.getElementById('app').classList.contains('hide')) loadInstances(); }, 10000);
+</script>
+
+</body>
+</html>

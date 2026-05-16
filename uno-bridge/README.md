@@ -34,6 +34,33 @@ Todas as rotas `/providers/*` exigem `Authorization: Bearer ${BRIDGE_API_TOKEN}`
 - `DELETE /providers/:providerId`
 - `POST /evolution/webhook` — recebe webhook global da Evolution
 
+### Painel gerencial proprio
+
+Em `GET /admin` o bridge serve um painel web (HTML+JS) para administrar a Evolution API sem usar o `/manager` nativo. Autenticacao por `BRIDGE_API_TOKEN` (mesmo token das rotas `/providers/*`).
+
+Funcionalidades:
+
+- listar instancias com status (open/connecting/close)
+- criar instancia (Baileys ou Meta Business)
+- exibir QR Code / pairing code
+- restart / logout / delete por instancia
+- configurar webhook por instancia
+- enviar mensagem de teste
+
+Rotas internas usadas pelo painel (todas exigem `Authorization: Bearer ${BRIDGE_API_TOKEN}`):
+
+- `GET /admin/api/health`
+- `GET /admin/api/instances`
+- `POST /admin/api/instances`
+- `GET /admin/api/instances/:name/connect`
+- `GET /admin/api/instances/:name/status`
+- `POST /admin/api/instances/:name/restart`
+- `POST /admin/api/instances/:name/logout`
+- `DELETE /admin/api/instances/:name`
+- `GET /admin/api/instances/:name/webhook`
+- `POST /admin/api/instances/:name/webhook`
+- `POST /admin/api/instances/:name/send`
+
 ## Exemplo
 
 ```bash
